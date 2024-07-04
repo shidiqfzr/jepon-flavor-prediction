@@ -1,19 +1,19 @@
-import customtkinter as ctk
-from tkinter import messagebox
 import cv2
-from PIL import Image, ImageTk
-import numpy as np
 import joblib
+import customtkinter as ctk
+from PIL import Image, ImageTk
+from tkinter import messagebox
 
-class CameraApp:
+
+class TestMain:
     def __init__(self, window, window_title):
         self.window = window
         self.window.title(window_title)
-        self.video_source = 1  # Use 0 for primary camera, or change to 1 for external camera
+        self.video_source = 0  # Use 0 for primary camera, or change to 1 for external camera
 
         # Load the trained KNN model and scaler
-        self.knn = joblib.load('knn_model.pkl')
-        self.scaler = joblib.load('scaler.pkl')
+        self.knn = joblib.load('Model\knn_model.pkl')
+        self.scaler = joblib.load('Model\scaler.pkl')
 
         # Open video source (by default this will try to open the computer webcam)
         self.vid = cv2.VideoCapture(self.video_source)
@@ -107,9 +107,3 @@ class CameraApp:
         # Release the video source when the object is destroyed
         if self.vid.isOpened():
             self.vid.release()
-
-# Create a window and pass it to the Application object
-window = ctk.CTk()
-ctk.set_appearance_mode("Dark")  # Modes: "System" (default), "Dark", "Light"
-ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
-CameraApp(window, "Fruit Flavor Detection")

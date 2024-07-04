@@ -1,12 +1,11 @@
-import customtkinter as ctk
-from tkinter import messagebox
 import cv2
-from PIL import Image, ImageTk
-import numpy as np
-import joblib
-from picamera.array import PiRGBArray
-from picamera import PiCamera
 import time
+import joblib
+import customtkinter as ctk
+from PIL import Image, ImageTk
+from tkinter import messagebox
+from picamera2 import Picamera2
+
 
 class CameraApp:
     def __init__(self, window, window_title):
@@ -14,15 +13,15 @@ class CameraApp:
         self.window.title(window_title)
 
         # Load the trained KNN model and scaler
-        self.knn = joblib.load('knn_model.pkl')
-        self.scaler = joblib.load('scaler.pkl')
+        self.knn = joblib.load("Model\knn_model.pkl")
+        self.scaler = joblib.load("Model\scaler.pkl")
 
         # Initialize the Raspberry Pi camera
-        self.camera = PiCamera()
-        self.camera.resolution = (640, 480)
-        self.camera.framerate = 30
-        self.raw_capture = PiRGBArray(self.camera, size=(640, 480))
-        time.sleep(0.1)  # Allow the camera to warm up
+        self.camera = Picamera2()
+        self.camera.preview_configuration.main.size=(640,480)
+        self.camera.preview_configuration.main.format="RGB888"
+        self.camera.start()
+        time.sleep(0.1)
 
         # Create left frame for buttons
         self.left_frame = ctk.CTkFrame(window, width=300)
@@ -67,8 +66,7 @@ class CameraApp:
         self.window.mainloop()
 
     def capture_image(self):
-        self.camera.capture(self.raw_capture, format="bgr")
-        frame = self.raw_capture.array
+        frame = self.camera.capture_array()
 
         # Flip the frame horizontally
         frame = cv2.flip(frame, 1)
@@ -90,14 +88,10 @@ class CameraApp:
         # Update the labels with the prediction results
         self.label_rgb.configure(text=f"Captured RGB Value: {rgb_value}")
         self.label_flavor.configure(text=f"Predicted Flavor: {flavor}")
-
         messagebox.showinfo("Predicted Flavor", f"Captured RGB Value: {rgb_value}\nPredicted Flavor: {flavor}")
 
-        self.raw_capture.truncate(0)
-
     def update(self):
-        self.camera.capture(self.raw_capture, format="bgr")
-        frame = self.raw_capture.array
+        frame = self.camera.capture_array()
 
         # Flip the frame horizontally
         frame = cv2.flip(frame, 1)
@@ -109,16 +103,7 @@ class CameraApp:
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame_rgb))
         self.canvas.create_image(0, 0, image=self.photo, anchor=ctk.NW)
-
-        self.raw_capture.truncate(0)
         self.window.after(10, self.update)
 
     def __del__(self):
-        # Release the video source when the object is destroyed
-        self.camera.close()
-
-# Create a window and pass it to the Application object
-window = ctk.CTk()
-ctk.set_appearance_mode("Dark")  # Modes: "System" (default), "Dark", "Light"
-ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
-CameraApp(window, "Fruit Flavor Detection")
+        self.camera.stop()
