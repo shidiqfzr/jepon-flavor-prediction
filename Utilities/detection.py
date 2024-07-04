@@ -1,9 +1,8 @@
-from __future__ import division
 import cv2
-from matplotlib import pyplot as plt
 import numpy as np
-import joblib
-from PIL import Image, ImageTk
+from __future__ import division
+from matplotlib import pyplot as plt
+
 
 green = (0, 255, 0)
 
