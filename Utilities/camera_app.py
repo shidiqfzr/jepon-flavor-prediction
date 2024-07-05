@@ -32,7 +32,7 @@ class CameraApp:
         self.right_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
         # Configure grid weights for resizing
-        self.window.grid_columnconfigure(0, weight=1)
+        self.window.grid_columnconfigure(0, weight=0)
         self.window.grid_columnconfigure(1, weight=1)
         self.window.grid_rowconfigure(0, weight=1)
 
