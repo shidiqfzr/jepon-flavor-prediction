@@ -10,6 +10,9 @@
 ### Struktur File:
 ```
 . 
+├── Datasets
+|   └── basisData.csv
+|
 ├── Model      
 |   ├── Jepon_Flavor_Prediction_Model.ipynb
 |   ├── knn_model.pkl
@@ -29,7 +32,7 @@
 ### Cara Pakai
 1. Klon repo dari github.
   ```git
-   git clone https://github.com/{username}/jepon-flavor-prediction.git
+   git clone https://github.com/shidiqfzr/jepon-flavor-prediction.git
   ```
 2. Install `Python 3.9` dan `pip install -r requirements.txt`.
 3. Jalankan file `app.py`.

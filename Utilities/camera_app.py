@@ -1,7 +1,9 @@
+import os
 import cv2
 import time
 import joblib
 import numpy as np
+import pandas as pd
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from tkinter import messagebox
@@ -12,10 +14,15 @@ class CameraApp:
     def __init__(self, window, window_title):
         self.window = window
         self.window.title(window_title)
+        self.counter = 0
 
+        # Relative path dari folder root
+        self.current_directory = os.path.dirname(os.path.abspath(__file__))
+        
         # Load the trained KNN model and scaler
-        self.knn = joblib.load("Model\knn_model.pkl")
-        self.scaler = joblib.load("Model\scaler.pkl")
+        path = self.current_directory.replace('Utilities', 'Model')
+        self.knn = joblib.load(os.path.join(path, 'knn_model.pkl'))
+        self.scaler = joblib.load(os.path.join(path, 'scaler.pkl'))
 
         # Initialize the Raspberry Pi camera
         self.camera = Picamera2()
@@ -54,7 +61,7 @@ class CameraApp:
         self.label_flavor.pack(pady=5, fill=ctk.X)
         
         # Button that lets the user capture a frame
-        self.btn_snapshot = ctk.CTkButton(self.left_frame, text="Predict", command=self.capture_image)
+        self.btn_snapshot = ctk.CTkButton(self.left_frame, text="Predict", command=self.save_pandas_dataframe)
         self.btn_snapshot.pack(pady=10, fill=ctk.X)
 
         # Button to quit the application
@@ -67,74 +74,115 @@ class CameraApp:
         self.window.mainloop()
 
     def capture_image(self):
-        ret, frame = self.vid.read()
-        if ret:
-            # Flip the frame horizontally
-            frame = cv2.flip(frame, 1)
+        frame = self.camera.capture_array()
 
-            # Convert the image from BGR to RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Flip the frame horizontally
+        frame = cv2.flip(frame, 1)
 
-            # Get the dimensions of the frame
-            height, width, _ = frame_rgb.shape
+        # Convert the image from BGR to RGB
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-            # Define the center and radius of the circle
-            center = (width // 2, height // 2)
-            radius = min(center) // 2
+        # Get the dimensions of the frame
+        height, width, _ = frame_rgb.shape
 
-            # Create a mask with the same dimensions as the frame
-            mask = np.zeros((height, width), dtype=np.uint8)
+        # Define the center and radius of the circle
+        center = (width // 2, height // 2)
+        radius = min(center) // 2
 
-            # Draw a filled circle on the mask
-            cv2.circle(mask, center, radius, 255, -1)
+        # Create a mask with the same dimensions as the frame
+        mask = np.zeros((height, width), dtype=np.uint8)
 
-            # Extract the region of interest using the mask
-            masked_frame = cv2.bitwise_and(frame_rgb, frame_rgb, mask=mask)
+        # Draw a filled circle on the mask
+        cv2.circle(mask, center, radius, (255,255,255), -1)
 
-            # Calculate the average color of the region inside the circle
-            avg_color = cv2.mean(frame_rgb, mask=mask)[:3]
-            rgb_value = [int(avg_color[0]), int(avg_color[1]), int(avg_color[2])]
+        # Calculate the average color of the region inside the circle
+        avg_color = cv2.mean(frame_rgb, mask=mask)[:3]
+        rgb_value = [int(avg_color[0]), int(avg_color[1]), int(avg_color[2])]
 
-            # Scale the RGB values
-            rgb_value_scaled = self.scaler.transform([rgb_value])
+        # Scale the RGB values
+        rgb_value_scaled = self.scaler.transform([rgb_value])
 
-            # Predict the flavor using the KNN model
-            flavor = self.knn.predict(rgb_value_scaled)[0]
+        # Predict the flavor using the KNN model
+        flavor = self.knn.predict(rgb_value_scaled)[0]
 
-            # Update the labels with the prediction results
-            self.label_rgb.configure(text=f"Captured RGB Value: {rgb_value}")
-            self.label_flavor.configure(text=f"Predicted Flavor: {flavor}")
-
-            messagebox.showinfo("Predicted Flavor", f"Captured RGB Value: {rgb_value}\nPredicted Flavor: {flavor}")
+        # Update the labels with the prediction results
+        self.label_rgb.configure(text=f"Captured RGB Value: {rgb_value}")
+        self.label_flavor.configure(text=f"Predicted Flavor: {flavor}")
+        messagebox.showinfo("Predicted Flavor", f"Captured RGB Value: {rgb_value}\nPredicted Flavor: {flavor}")
 
     def update(self):
-        # Get a frame from the video source
-        ret, frame = self.vid.read()
-        if ret:
-            # Flip the frame horizontally
-            frame = cv2.flip(frame, 1)
+        frame = self.camera.capture_array()
 
-            # Get the dimensions of the frame
-            height, width, _ = frame.shape
+        # Flip the frame horizontally
+        frame = cv2.flip(frame, 1)
 
-            # Define the center and radius of the circle
-            center = (width // 2, height // 2)
-            radius = min(center) // 2
+        # Get the dimensions of the frame
+        height, width, _ = frame.shape
 
-            # Draw a circle on the frame
-            cv2.circle(frame, center, radius, (0, 255, 0), 2)
+        # Define the center and radius of the circle
+        center = (width // 2, height // 2)
+        radius = min(center) // 2
 
-            # Resize the frame to fit the canvas size
-            frame = cv2.resize(frame, (self.canvas.winfo_width(), self.canvas.winfo_height()))
+        # Create a mask with the same dimensions as the frame
+        mask = np.zeros((height, width), dtype=np.uint8)
 
-            # Convert the image format from OpenCV BGR to PIL RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame_rgb))
-            self.canvas.create_image(0, 0, image=self.photo, anchor=ctk.NW)
+        # Draw a circle on the frame
+        cv2.circle(mask, center, radius, (255, 255, 255), -1)
 
+        # Extract the region of interest using the mask
+        masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
+        masked_frame = cv2.resize(masked_frame, (self.canvas.winfo_width(), self.canvas.winfo_height()))
+
+        # Convert the image format from OpenCV BGR to PIL HSV
+        frame_rgb = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2RGB)
+        self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame_rgb))
+        self.canvas.create_image(0, 0, image=self.photo, anchor=ctk.NW)
         self.window.after(10, self.update)
 
     def __del__(self):
-        # Release the video source when the object is destroyed
-        if self.vid.isOpened():
-            self.vid.release()
+        self.camera.stop()
+
+    def save_pandas_dataframe(self, filename='basisData.csv') -> None:
+        """Menyimpan data sensor ke csv format.
+
+        Args:
+            filename (str): nama file (default: basisData.csv)
+        """
+        frame = self.camera.capture_array()
+
+        # Flip the frame horizontally
+        frame = cv2.flip(frame, 1)
+
+        # Convert the image from BGR to HSV
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        # Get the dimensions of the frame
+        height, width, _ = frame_rgb.shape
+
+        # Define the center and radius of the circle
+        center = (width // 2, height // 2)
+        radius = min(center) // 2
+
+        # Create a mask with the same dimensions as the frame
+        mask = np.zeros((height, width), dtype=np.uint8)
+
+        # Draw a filled circle on the mask
+        cv2.circle(mask, center, radius, (255,255,255), -1)
+
+        # Calculate the average color of the region inside the circle
+        avg_color = cv2.mean(frame_rgb, mask=mask)[:3]
+        hsv_value = [int(avg_color[0]), int(avg_color[1]), int(avg_color[2])]
+        self.label_rgb.configure(text=f"Captured RGB Value: {hsv_value}")
+
+        data = {'id': self.counter, 'h':int(avg_color[0]), 's':int(avg_color[1]), 'v':int(avg_color[2])}
+        df = pd.DataFrame([data])
+
+        path = self.current_directory.replace('Utilities', 'Datasets')
+        full_path = os.path.join(path, filename)
+        
+        if not os.path.isfile(full_path):
+            df.to_csv(full_path, mode='w', header=True, index=False)
+        else:
+            df.to_csv(full_path, mode='a', header=False, index=False)
+        
+        self.counter+=1

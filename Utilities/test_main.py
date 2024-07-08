@@ -1,19 +1,27 @@
+import os
 import cv2
-import numpy as np
 import joblib
+import numpy as np
+import pandas as pd
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from tkinter import messagebox
+
 
 class TestMain:
     def __init__(self, window, window_title):
         self.window = window
         self.window.title(window_title)
-        self.video_source = 1  # Use 0 for primary camera, or change to 1 for external camera
+        self.counter = 0
+        self.video_source = 0  # Use 0 for primary camera, or change to 1 for external camera
 
+        # Relative path dari folder root
+        self.current_directory = os.path.dirname(os.path.abspath(__file__))
+        
         # Load the trained KNN model and scaler
-        self.knn = joblib.load('Model/knn_model.pkl')
-        self.scaler = joblib.load('Model/scaler.pkl')
+        path = self.current_directory.replace('Utilities', 'Model')
+        self.knn = joblib.load(os.path.join(path, 'knn_model.pkl'))
+        self.scaler = joblib.load(os.path.join(path, 'scaler.pkl'))
 
         # Open video source (by default this will try to open the computer webcam)
         self.vid = cv2.VideoCapture(self.video_source)
@@ -48,7 +56,7 @@ class TestMain:
         self.label_flavor.pack(pady=5, fill=ctk.X)
         
         # Button that lets the user capture a frame
-        self.btn_snapshot = ctk.CTkButton(self.left_frame, text="Predict", command=self.capture_image)
+        self.btn_snapshot = ctk.CTkButton(self.left_frame, text="Predict", command=self.save_pandas_dataframe)
         self.btn_snapshot.pack(pady=10, fill=ctk.X)
 
         # Button to quit the application
@@ -124,7 +132,7 @@ class TestMain:
             masked_frame = cv2.resize(masked_frame, (self.canvas.winfo_width(), self.canvas.winfo_height()))
 
             # Convert the image format from OpenCV BGR to PIL RGB
-            frame_rgb = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2HSV)
+            frame_rgb = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2RGB)
             self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame_rgb))
             self.canvas.create_image(0, 0, image=self.photo, anchor=ctk.NW)
 
@@ -134,3 +142,48 @@ class TestMain:
         # Release the video source when the object is destroyed
         if self.vid.isOpened():
             self.vid.release()
+
+    def save_pandas_dataframe(self, filename='basisData.csv') -> None:
+        """Menyimpan data sensor ke csv format.
+
+        Args:
+            filename (str): nama file (default: basisData.csv)
+        """
+        ret, frame = self.vid.read()
+        if ret:
+            # Flip the frame horizontally
+            frame = cv2.flip(frame, 1)
+
+            # Convert the image from BGR to RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+            # Get the dimensions of the frame
+            height, width, _ = frame_rgb.shape
+
+            # Define the center and radius of the circle
+            center = (width // 2, height // 2)
+            radius = min(center) // 2
+
+            # Create a mask with the same dimensions as the frame
+            mask = np.zeros((height, width), dtype=np.uint8)
+
+            # Draw a filled circle on the mask
+            cv2.circle(mask, center, radius, (255,255,255), -1)
+
+            # Calculate the average color of the region inside the circle
+            avg_color = cv2.mean(frame_rgb, mask=mask)[:3]
+            hsv_value = [int(avg_color[0]), int(avg_color[1]), int(avg_color[2])]
+            self.label_rgb.configure(text=f"Captured RGB Value: {hsv_value}")
+
+            data = {'id': self.counter, 'h':int(avg_color[0]), 's':int(avg_color[1]), 'v':int(avg_color[2])}
+            df = pd.DataFrame([data])
+
+            path = self.current_directory.replace('Utilities', 'Datasets')
+            full_path = os.path.join(path, filename)
+            
+            if not os.path.isfile(full_path):
+                df.to_csv(full_path, mode='w', header=True, index=False)
+            else:
+                df.to_csv(full_path, mode='a', header=False, index=False)
+            
+            self.counter+=1
