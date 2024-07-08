@@ -1,19 +1,19 @@
 import cv2
+import numpy as np
 import joblib
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from tkinter import messagebox
 
-
 class TestMain:
     def __init__(self, window, window_title):
         self.window = window
         self.window.title(window_title)
-        self.video_source = 0  # Use 0 for primary camera, or change to 1 for external camera
+        self.video_source = 1  # Use 0 for primary camera, or change to 1 for external camera
 
         # Load the trained KNN model and scaler
-        self.knn = joblib.load('Model\knn_model.pkl')
-        self.scaler = joblib.load('Model\scaler.pkl')
+        self.knn = joblib.load('Model/knn_model.pkl')
+        self.scaler = joblib.load('Model/scaler.pkl')
 
         # Open video source (by default this will try to open the computer webcam)
         self.vid = cv2.VideoCapture(self.video_source)
@@ -69,9 +69,24 @@ class TestMain:
             # Convert the image from BGR to RGB
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Calculate the average color of the image
-            avg_color_per_row = frame_rgb.mean(axis=0)
-            avg_color = avg_color_per_row.mean(axis=0)
+            # Get the dimensions of the frame
+            height, width, _ = frame_rgb.shape
+
+            # Define the center and radius of the circle
+            center = (width // 2, height // 2)
+            radius = min(center) // 2
+
+            # Create a mask with the same dimensions as the frame
+            mask = np.zeros((height, width), dtype=np.uint8)
+
+            # Draw a filled circle on the mask
+            cv2.circle(mask, center, radius, 255, -1)
+
+            # Extract the region of interest using the mask
+            masked_frame = cv2.bitwise_and(frame_rgb, frame_rgb, mask=mask)
+
+            # Calculate the average color of the region inside the circle
+            avg_color = cv2.mean(frame_rgb, mask=mask)[:3]
             rgb_value = [int(avg_color[0]), int(avg_color[1]), int(avg_color[2])]
 
             # Scale the RGB values
@@ -92,6 +107,16 @@ class TestMain:
         if ret:
             # Flip the frame horizontally
             frame = cv2.flip(frame, 1)
+
+            # Get the dimensions of the frame
+            height, width, _ = frame.shape
+
+            # Define the center and radius of the circle
+            center = (width // 2, height // 2)
+            radius = min(center) // 2
+
+            # Draw a circle on the frame
+            cv2.circle(frame, center, radius, (0, 255, 0), 2)
 
             # Resize the frame to fit the canvas size
             frame = cv2.resize(frame, (self.canvas.winfo_width(), self.canvas.winfo_height()))
