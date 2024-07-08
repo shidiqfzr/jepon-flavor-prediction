@@ -67,7 +67,7 @@ class TestMain:
             frame = cv2.flip(frame, 1)
 
             # Convert the image from BGR to RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
             # Get the dimensions of the frame
             height, width, _ = frame_rgb.shape
@@ -80,10 +80,7 @@ class TestMain:
             mask = np.zeros((height, width), dtype=np.uint8)
 
             # Draw a filled circle on the mask
-            cv2.circle(mask, center, radius, 255, -1)
-
-            # Extract the region of interest using the mask
-            masked_frame = cv2.bitwise_and(frame_rgb, frame_rgb, mask=mask)
+            cv2.circle(mask, center, radius, (255,255,255), -1)
 
             # Calculate the average color of the region inside the circle
             avg_color = cv2.mean(frame_rgb, mask=mask)[:3]
@@ -115,14 +112,19 @@ class TestMain:
             center = (width // 2, height // 2)
             radius = min(center) // 2
 
-            # Draw a circle on the frame
-            cv2.circle(frame, center, radius, (0, 255, 0), 2)
+            # Create a mask with the same dimensions as the frame
+            mask = np.zeros((height, width), dtype=np.uint8)
 
-            # Resize the frame to fit the canvas size
-            frame = cv2.resize(frame, (self.canvas.winfo_width(), self.canvas.winfo_height()))
+            # Draw a circle on the frame
+            cv2.circle(mask, center, radius, (255, 255, 255), -1)
+
+
+            # Extract the region of interest using the mask
+            masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
+            masked_frame = cv2.resize(masked_frame, (self.canvas.winfo_width(), self.canvas.winfo_height()))
 
             # Convert the image format from OpenCV BGR to PIL RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_rgb = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2HSV)
             self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame_rgb))
             self.canvas.create_image(0, 0, image=self.photo, anchor=ctk.NW)
 
