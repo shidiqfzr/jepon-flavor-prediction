@@ -20,7 +20,7 @@ class CameraApp:
         self.current_directory = os.path.dirname(os.path.abspath(__file__))
         
         # Load the trained KNN model and scaler
-        path = self.current_directory.replace('Utilities', 'Model')
+        path = self.current_directory.replace('Utilities', 'Models')
         self.knn = joblib.load(os.path.join(path, 'knn_model.pkl'))
         self.scaler = joblib.load(os.path.join(path, 'scaler.pkl'))
 
